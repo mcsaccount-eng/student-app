@@ -1,14 +1,17 @@
 {
-  "name": "student-cleaning-app",
+  "name": "mcs-student-cleaning-app",
   "version": "1.0.0",
   "private": true,
-  "description": "Student Accommodation Cleaning Booking (PWA + Node/Express)",
+  "description": "Student Accommodation Cleaning Booking (PWA + Node/Express + SMS)",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
+    "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "twilio": "^4.21.0",
-    "dotenv": "^16.4.5"
+    "twilio": "^4.21.0"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
