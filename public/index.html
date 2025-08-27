@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MCS Student Cleaning</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0a4b78">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <style>
+    :root { --brand:#0a4b78; --bg:#f8fafc; --card:#ffffff; --ink:#0b1220; --muted:#5b6470; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:var(--bg); color:var(--ink); }
+    header { position:sticky; top:0; background:var(--brand); color:#fff; padding:16px; text-align:center; }
+    .container { max-width: 760px; margin: 16px auto; padding: 16px; }
+    .card { background:var(--card); border-radius:12px; padding:16px; box-shadow: 0 2px 10px rgba(0,0,0,.05); margin-bottom:16px; }
+    h1 { font-size: 1.25rem; margin:0; }
+    h2 { margin: 8px 0 4px; font-size:1.1rem; }
+    label { display:block; margin:10px 0 6px; color:var(--muted); font-size: .95rem; }
+    input, select, button, textarea { width:100%; padding:12px; border:1px solid #e2e8f0; border-radius:10px; font-size:1rem; }
+    button { background:var(--brand); color:#fff; border:none; cursor:pointer; }
+    button.secondary { background:#0ea5e9; }
+    button.ghost { background:#fff; color:var(--brand); border:1px solid var(--brand); }
+    .row { display:flex; gap:12px; }
+    .row > * { flex:1; }
+    .slots { display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; margin-top:10px; }
+    .slot { padding:10px; border:1px solid #e2e8f0; border-radius:10px; background:#fff; cursor:pointer; text-align:center; }
+    .slot.selected { border-color: var(--brand); outline: 2px solid var(--brand); }
+    .success { padding: 12px; background:#ecfdf5; border:1px solid #10b981; color:#065f46; border-radius:10px; }
+    .muted { color:var(--muted); font-size:.95rem; }
+    .inline { display:inline-flex; gap:8px; align-items:center; }
+    .qr-preview { font-family: ui-monospace, Menlo, Consolas, monospace; background:#f1f5f9; padding:8px; border-radius:8px; }
+    .footer { text-align:center; color:#738198; padding:24px; font-size:.9rem; }
+    video { width:100%; border-radius: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="inline"><img src="/mcs-logo.png" alt="MCS" style="height:28px;border-radius:6px;background:#fff;padding:4px;"><h1>MCS Student Cleaning</h1></div>
+  </header>
+  <div class="container">
+    <div class="card">
+      <h2>Scan location QR (optional)</h2>
+      <p class="muted">Scanning pre-fills building/flat/room. Or enter them manually below.</p>
+      <div class="row">
+        <button id="scanBtn">Scan QR</button>
+        <button id="stopScanBtn" class="ghost">Stop camera</button>
+      </div>
+      <div id="scanner" style="display:none; margin-top:12px;">
+        <video id="video" playsinline></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+      </div>
+      <p id="qrText" class="qr-preview" style="display:none;"></p>
+    </div>
+
+    <div class="card">
+      <h2>Booking details</h2>
+      <div class="row">
+        <div>
+          <label>Building</label>
+          <input id="building" placeholder="e.g., Block A">
+        </div>
+        <div>
+          <label>Flat</label>
+          <input id="flat" placeholder="e.g., 12">
+        </div>
+        <div>
+          <label>Room (optional)</label>
+          <input id="room" placeholder="e.g., 3 (if booking room clean)">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Service</label>
+          <select id="service">
+            <option value="room_clean">Room cleaning (60 min)</option>
+            <option value="kitchen_clean">Kitchen cleaning (60 min)</option>
+          </select>
+        </div>
+        <div>
+          <label>Date</label>
+          <input type="date" id="date">
+        </div>
+      </div>
+
+      <button id="checkAvail" class="secondary" style="margin-top:8px;">Check availability</button>
+      <div id="slots" class="slots"></div>
+
+      <div class="row" style="margin-top:10px;">
+        <div>
+          <label>Your name</label>
+          <input id="name" placeholder="Full name">
+        </div>
+        <div>
+          <label>Email</label>
+          <input id="email" placeholder="email@example.com">
+        </div>
+      </div>
+      <label>Phone</label>
+      <input id="phone" placeholder="+44 ...">
+
+      <label>Notes (optional)</label>
+      <textarea id="notes" rows="3" placeholder="Any special instructions"></textarea>
+
+      <button id="submitBtn" style="margin-top:12px;">Confirm booking</button>
+      <div id="result" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Admin tools</h2>
+      <p class="muted">Quick view of bookings today and generate QR codes for locations.</p>
+      <div class="row">
+        <input id="adminDate" type="date">
+        <button id="loadBookings" class="secondary">Load bookings</button>
+      </div>
+      <div id="adminBookings" style="margin-top:10px;"></div>
+
+      <h3 style="margin-top:16px;">Generate location QR</h3>
+      <div class="row">
+        <input id="qrBuilding" placeholder="Building e.g., A">
+        <input id="qrFlat" placeholder="Flat e.g., 12">
+        <input id="qrRoom" placeholder="Room e.g., 3 (optional)">
+      </div>
+      <button id="makeQR" style="margin-top:8px;">Create QR</button>
+      <div id="qrOutput" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="footer">
+      Installable PWA – add to home screen. Operated by MCS Group. Open hours 09:00–18:00, London time. By booking, you consent to SMS updates.
+    </div>
+  </div>
+
+  <script src="/jsQR.min.js"></script>
+  <script src="/qrcode.min.js"></script>
+  <script>
+  // --- Utilities ---
+  function qs(id){ return document.getElementById(id); }
+  function fmtTime(iso) {
+    const d = new Date(iso);
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    return `${hh}:${mm}`;
+  }
+  function todayYYYYMMDD() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+  function getQueryParams() {
+    const p = new URLSearchParams(location.search);
+    return Object.fromEntries(p.entries());
+  }
+
+  // Prefill date
+  qs('date').value = todayYYYYMMDD();
+  qs('adminDate').value = todayYYYYMMDD();
+
+  // Prefill from QR deep link if present
+  const qp = getQueryParams();
+  if (qp.building) qs('building').value = qp.building;
+  if (qp.flat) qs('flat').value = qp.flat;
+  if (qp.room) qs('room').value = qp.room;
+
+  // --- Availability ---
+  let selectedSlot = null;
+  function renderSlots(slots) {
+    const wrap = qs('slots');
+    wrap.innerHTML = '';
+    if (!slots || slots.length === 0) {
+      wrap.innerHTML = '<p class="muted">No slots available. Try a different date.</p>';
+      return;
+    }
+    slots.forEach(s => {
+      const btn = document.createElement('button');
+      btn.className = 'slot';
+      btn.textContent = fmtTime(s.start) + ' – ' + fmtTime(s.end);
+      btn.onclick = () => {
+        selectedSlot = s.start;
+        document.querySelectorAll('.slot').forEach(el=>el.classList.remove('selected'));
+        btn.classList.add('selected');
+      };
+      wrap.appendChild(btn);
+    });
+  }
+
+  qs('checkAvail').onclick = async () => {
+    selectedSlot = null;
+    const serviceId = qs('service').value;
+    const date = qs('date').value;
+    const res = await fetch(`/api/availability?serviceId=${encodeURIComponent(serviceId)}&date=${encodeURIComponent(date)}`);
+    const data = await res.json();
+    renderSlots(data.slots);
+  };
+
+  // --- Submit booking ---
+  qs('submitBtn').onclick = async () => {
+    const out = qs('result'); out.innerHTML='';
+    const payload = {
+      serviceId: qs('service').value,
+      building: qs('building').value.trim(),
+      flat: qs('flat').value.trim(),
+      room: qs('room').value.trim(),
+      name: qs('name').value.trim(),
+      email: qs('email').value.trim(),
+      phone: qs('phone').value.trim(),
+      notes: qs('notes').value.trim(),
+      start: selectedSlot
+    };
+    if (!payload.name) { out.innerHTML = '<p class="muted">Please enter your name.</p>'; return; }
+    if (!payload.start) { out.innerHTML = '<p class="muted">Please pick a time slot.</p>'; return; }
+
+    try {
+      const res = await fetch('/api/bookings', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      out.innerHTML = `<div class="success">
+        <strong>Booked!</strong> Ref: ${data.booking.id}<br>
+        ${data.booking.serviceName} at ${fmtTime(data.booking.start)} on ${data.booking.start.substring(0,10)}<br>
+        Location: ${data.booking.building} ${data.booking.flat ? 'Flat '+data.booking.flat : ''} ${data.booking.room ? 'Room '+data.booking.room : ''}
+      </div>`;
+      // Reset
+      selectedSlot = null;
+      qs('slots').innerHTML = '';
+    } catch (e) {
+      out.innerHTML = `<p class="muted">Sorry, that slot is gone. Please refresh availability.</p>`;
+    }
+  };
+
+  // --- Admin bookings ---
+  qs('loadBookings').onclick = async () => {
+    const date = qs('adminDate').value;
+    const res = await fetch(`/api/bookings?date=${encodeURIComponent(date)}`);
+    const data = await res.json();
+    const wrap = qs('adminBookings');
+    if (!data.bookings || data.bookings.length === 0) {
+      wrap.innerHTML = '<p class="muted">No bookings.</p>'; return;
+    }
+    let html = '<div class="card"><table style="width:100%; border-collapse: collapse;">';
+    html += '<tr><th style="text-align:left; padding:6px;">Time</th><th style="text-align:left; padding:6px;">Service</th><th style="text-align:left; padding:6px;">Name</th><th style="text-align:left; padding:6px;">Location</th></tr>';
+    data.bookings.forEach(b => {
+      html += `<tr>
+        <td style="padding:6px;">${fmtTime(b.start)}</td>
+        <td style="padding:6px;">${b.serviceName}</td>
+        <td style="padding:6px;">${b.name}</td>
+        <td style="padding:6px;">${b.building} ${b.flat?('Flat '+b.flat):''} ${b.room?('Room '+b.room):''}</td>
+      </tr>`;
+    });
+    html += '</table></div>';
+    wrap.innerHTML = html;
+  };
+
+  // --- QR generator ---
+  qs('makeQR').onclick = () => {
+    const b = encodeURIComponent(qs('qrBuilding').value.trim());
+    const f = encodeURIComponent(qs('qrFlat').value.trim());
+    const r = encodeURIComponent(qs('qrRoom').value.trim());
+    const base = location.origin + location.pathname; // index
+    const url = `${base}?building=${b}&flat=${f}${r ? '&room='+r : ''}`;
+    const out = qs('qrOutput');
+    out.innerHTML = '';
+    const canvas = document.createElement('canvas');
+    out.appendChild(canvas);
+    QRCode.toCanvas(canvas, url, { width: 220 }, function (error) {
+      if (error) console.error(error);
+    });
+    const link = document.createElement('a');
+    link.href = url; link.textContent = url; link.style.display='block'; link.style.marginTop='8px';
+    out.appendChild(link);
+  };
+
+  // --- QR Scanner ---
+  const scanBtn = qs('scanBtn');
+  const stopScanBtn = qs('stopScanBtn');
+  const scanner = qs('scanner');
+  const video = qs('video');
+  const canvas = qs('canvas');
+  const qrText = qs('qrText');
+  let stream = null;
+  let scanning = false;
+
+  async function startScan() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      video.srcObject = stream;
+      await video.play();
+      scanning = true; scanner.style.display = 'block'; qrText.style.display = 'none';
+      requestAnimationFrame(tick);
+    } catch (e) {
+      alert('Camera not available or permission denied.');
+    }
+  }
+  function stopScan() {
+    scanning = false;
+    if (stream) {
+      stream.getTracks().forEach(t=>t.stop());
+      stream = null;
+    }
+    scanner.style.display = 'none';
+  }
+
+  function tick() {
+    if (!scanning) return;
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0,0,canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height);
+      if (code && code.data) {
+        stopScan();
+        qrText.style.display='block';
+        qrText.textContent = code.data;
+        try {
+          const u = new URL(code.data);
+          const p = new URLSearchParams(u.search);
+          if (p.get('building')) qs('building').value = p.get('building');
+          if (p.get('flat')) qs('flat').value = p.get('flat');
+          if (p.get('room')) qs('room').value = p.get('room');
+        } catch (e) {
+          // If it's not a URL, try parsing key=value pairs like building=A&flat=12
+          const parts = code.data.split('&');
+          for (const kv of parts) {
+            const [k,v] = kv.split('=');
+            if (k==='building') qs('building').value = decodeURIComponent(v||'');
+            if (k==='flat') qs('flat').value = decodeURIComponent(v||'');
+            if (k==='room') qs('room').value = decodeURIComponent(v||'');
+          }
+        }
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  scanBtn.onclick = startScan;
+  stopScanBtn.onclick = stopScan;
+
+  // PWA SW registration
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/service-worker.js');
+    });
+  }
+  </script>
+</body>
+</html>
