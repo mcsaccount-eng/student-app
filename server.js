@@ -198,6 +198,8 @@ app.get('*', (req,res)=>{
   return res.status(404).send('Not found');
 });
 
+const PORT = process.env.PORT || 3000; 
+
 app.listen(PORT, ()=>{
   console.log(`Student cleaning app running on http://localhost:${PORT}`);
 });
